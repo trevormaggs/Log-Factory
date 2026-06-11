@@ -139,6 +139,12 @@ public class Main
 * Java 8 or later
 * No external dependencies
 
-## License
+---
 
-MIT License
+## ✍️ Credits
+
+This library is developed and maintained by **Trevor Maggs**.
+
+Anyone wishing to use this resource is welcome to download or clone the repository via Git. If you have any comments, suggestions, or find any bugs, please direct your questions to me via email: **[trevmaggs@tpg.com.au](mailto:trevmaggs@tpg.com.au)**.
+
+---
