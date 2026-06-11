@@ -34,8 +34,7 @@ Application
 ### Simple Logger Access
 
 ```java
-private static final LogFactory LOGGER =
-        LogFactory.getLogger(MyClass.class);
+private static final LogFactory LOGGER = LogFactory.getLogger(MyClass.class);
 ```
 
 ### Standard Logging
@@ -114,17 +113,13 @@ LOGGER.info("Reading EXIF metadata", Verbosity.FULL);
 ```java
 public class Main
 {
-    private static final LogFactory LOGGER =
-            LogFactory.getLogger(Main.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(Main.class);
 
     public static void main(String[] args)
     {
         try
         {
-            LogFactory.configure(
-                    "application.log",
-                    true,
-                    false);
+            LogFactory.configure("application.log", true, false);
 
             LOGGER.info("Application started");
 
