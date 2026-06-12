@@ -62,7 +62,7 @@ public final class LogFactory
     {
         Objects.requireNonNull(logfile, "Log file is undefined");
 
-        configure(logfile, new AppFormatter());
+        configure(logfile, false, false);
     }
 
     /**
@@ -83,16 +83,12 @@ public final class LogFactory
      *         if the file is null
      * @throws IOException
      *         if the file cannot be created or opened
-     * @throws SecurityException
-     *         if the system blocks access to the file path
      */
     public static synchronized void configure(String logfile, boolean debugEnabled, boolean traceEnabled) throws IOException
     {
         Objects.requireNonNull(logfile, "Log file is undefined");
 
-        debug = debugEnabled;
-        trace = traceEnabled;
-        configure(logfile, new AppFormatter());
+        configure(logfile, debugEnabled, traceEnabled, new AppFormatter());
     }
 
     /**
@@ -135,6 +131,10 @@ public final class LogFactory
      *
      * @param logfile
      *        path to the destination log file
+     * @param debugEnabled
+     *        true to turn on debug logging
+     * @param traceEnabled
+     *        true to turn on trace logging
      * @param formatter
      *        formatter used to render log records
      *
@@ -143,12 +143,14 @@ public final class LogFactory
      * @throws IOException
      *         if the log file cannot be created or opened
      */
-    public static synchronized void configure(String logfile, Formatter formatter) throws IOException
+    public static synchronized void configure(String logfile, boolean debugEnabled, boolean traceEnabled, Formatter formatter) throws IOException
     {
         Objects.requireNonNull(logfile, "Log file is undefined");
         Objects.requireNonNull(formatter, "Formatter is undefined");
 
         Logger rootLogger = Logger.getLogger("");
+        debug = debugEnabled;
+        trace = traceEnabled;
 
         /*
          * Disable parent handler propagation so that log records are processed only by the handlers
@@ -471,7 +473,7 @@ public final class LogFactory
 
         else
         {
-            realLogger.log(Level.SEVERE, msg, exc);
+            realLogger.log(Level.SEVERE, msg);
         }
     }
 
@@ -518,9 +520,7 @@ public final class LogFactory
      */
     private static Level getCurrentLevel()
     {
-        if (trace) return Level.FINE;
-        else if (debug) return Level.CONFIG;
-        else return Level.INFO;
+        return (trace ? Level.FINE : (debug ? Level.CONFIG : Level.INFO));
     }
 
     /**

@@ -226,15 +226,16 @@ public class AppFormatter extends Formatter
         // Block circular cause loops if any
         seenExceptions.add(exc);
 
-        // Recursively handle "Caused by" information safely
+        // Iteratively handle "Caused by" information safely
         while (cause != null)
         {
-            boolean referenceAlreadyFound = !seenExceptions.add(cause);
+            boolean referenceFound = !seenExceptions.add(cause);
 
-            if (referenceAlreadyFound)
+            if (referenceFound)
             {
                 appendHeader(sb, record);
-                sb.append("  [Circular exception reference detected. Loop terminated to prevent crash.]").append(System.lineSeparator());
+                sb.append("  [Circular exception reference detected. Loop terminated to prevent crash]");
+                sb.append(System.lineSeparator());
                 break;
             }
 
@@ -275,6 +276,7 @@ public class AppFormatter extends Formatter
         }
 
         appendHeader(sb, record);
+
         sb.append("****************************************************************");
     }
 }
