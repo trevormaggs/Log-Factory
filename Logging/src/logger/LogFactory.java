@@ -42,15 +42,10 @@ public final class LogFactory
         this.realLogger.setLevel(getCurrentLevel());
     }
 
-    /*
-     * =========================================================================
-     * APPLICATION-WIDE CONFIGURATION (Call once at Main entry point)
-     * =========================================================================
-     */
-
     /**
      * Sets up the logging system to use a single target log file using the default
-     * {@link CustomFormatter} formatter.
+     * {@link CustomFormatter} formatter. Developers need to call this method once at the main entry
+     * point in their applications.
      * 
      * @param logfile
      *        path to the target log file
@@ -71,6 +66,8 @@ public final class LogFactory
      * This method refreshes the logging configuration based on the global settings, preventing
      * double-logging or file locks. Every logger registered by this factory will automatically
      * route to the same specified file.
+     * 
+     * Developers need to call this method once at the main entry point in their applications.
      *
      * @param logfile
      *        path to the log file
