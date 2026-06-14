@@ -517,7 +517,7 @@ public final class LogFactory
      */
     private static Level getCurrentLevel()
     {
-        return (trace ? Level.FINE : (debug ? Level.CONFIG : Level.INFO));
+        return (appFileHandler == null ? Level.OFF : (trace ? Level.FINE : (debug ? Level.CONFIG : Level.INFO)));        
     }
 
     /**
