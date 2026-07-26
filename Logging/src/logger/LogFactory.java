@@ -517,7 +517,7 @@ public final class LogFactory
      */
     private static Level getCurrentLevel()
     {
-        return (appFileHandler == null ? Level.OFF : (trace ? Level.FINE : (debug ? Level.CONFIG : Level.INFO)));        
+        return (appFileHandler == null ? Level.OFF : (trace ? Level.FINE : (debug ? Level.CONFIG : Level.INFO)));
     }
 
     /**
@@ -534,6 +534,14 @@ public final class LogFactory
         }
 
         Logger.getLogger("").setLevel(targetLevel);
+
+        /*
+         * When JavaFX is used, internal framework events may generate verbose log messages
+         * that are irrelevant to the application. This explicitly clamps JavaFX loggers
+         * to WARNING after the root level update to prevent log noise.
+         */
+        Logger.getLogger("javafx").setLevel(Level.WARNING);
+        Logger.getLogger("com.sun.javafx").setLevel(Level.WARNING);
 
         for (LogFactory factory : LOGGERS.values())
         {
