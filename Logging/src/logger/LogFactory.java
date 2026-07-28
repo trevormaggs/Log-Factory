@@ -145,6 +145,8 @@ public final class LogFactory
         Objects.requireNonNull(logfile, "Log file is undefined");
         Objects.requireNonNull(formatter, "Formatter is undefined");
 
+        close();
+
         Logger rootLogger = Logger.getLogger("");
         debug = debugEnabled;
         trace = traceEnabled;
@@ -176,6 +178,39 @@ public final class LogFactory
         rootLogger.addHandler(appFileHandler);
 
         updateAllLoggers();
+    }
+
+    /**
+     * Flushes, removes, and closes the active file handler.
+     * 
+     * <p>
+     * Calling this method releases the underlying OS file locks on the log file, allowing directory
+     * cleanup or deletion operations to succeed on Windows systems.
+     * </p>
+     */
+    public static synchronized void close()
+    {
+        if (appFileHandler != null)
+        {
+            try
+            {
+                Logger rootLogger = Logger.getLogger("");
+                rootLogger.removeHandler(appFileHandler);
+
+                appFileHandler.flush();
+                appFileHandler.close();
+            }
+
+            catch (Exception exc)
+            {
+                // Ignore closing exceptions during shutdown/cleanup
+            }
+
+            finally
+            {
+                appFileHandler = null;
+            }
+        }
     }
 
     /**
