@@ -1,6 +1,8 @@
 package logger;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,6 +23,7 @@ import java.util.logging.Logger;
 public final class LogFactory
 {
     private static final Map<String, LogFactory> LOGGERS = new ConcurrentHashMap<>();
+    private static final List<LogListener> LISTENERS = new ArrayList<>();
     private static final String MEDIUM_INDENT = "    ";
     private static final String FULL_INDENT = "        ";
     private static FileHandler appFileHandler = null;
@@ -352,6 +355,39 @@ public final class LogFactory
         return logLevel;
     }
 
+    /**
+     * Registers a listener to receive every log message emitted by this factory.
+     *
+     * @param listener
+     *        the listener to register
+     */
+    public static void addLogListener(LogListener listener)
+    {
+        if (listener != null)
+        {
+            LISTENERS.add(listener);
+        }
+    }
+
+    /**
+     * Removes a previously registered log listener.
+     *
+     * @param listener
+     *        the listener to remove
+     */
+    public static void removeLogListener(LogListener listener)
+    {
+        LISTENERS.remove(listener);
+    }
+
+    private static void notifyListeners(Level level, String message)
+    {
+        for (LogListener listener : LISTENERS)
+        {
+            listener.onLog(level, message);
+        }
+    }
+
     /*
      * =====================================================
      * INSTANCE METHODS TO SUPPORT ONE SPECIFIC APPLICATION
@@ -393,7 +429,8 @@ public final class LogFactory
     {
         if (realLogger.isLoggable(Level.INFO))
         {
-            realLogger.log(Level.INFO, msg);
+            // realLogger.log(Level.INFO, msg);
+            log(Level.INFO, msg);
         }
     }
 
@@ -451,7 +488,8 @@ public final class LogFactory
     {
         if (isDebugEnabled())
         {
-            realLogger.log(Level.CONFIG, msg);
+            // realLogger.log(Level.CONFIG, msg);
+            log(Level.CONFIG, msg);
         }
     }
 
@@ -465,7 +503,8 @@ public final class LogFactory
     {
         if (realLogger.isLoggable(Level.WARNING))
         {
-            realLogger.log(Level.WARNING, msg);
+            // realLogger.log(Level.WARNING, msg);
+            log(Level.WARNING, msg);
         }
     }
 
@@ -479,7 +518,8 @@ public final class LogFactory
     {
         if (realLogger.isLoggable(Level.SEVERE))
         {
-            realLogger.log(Level.SEVERE, msg);
+            // realLogger.log(Level.SEVERE, msg);
+            log(Level.SEVERE, msg);
         }
     }
 
@@ -505,7 +545,8 @@ public final class LogFactory
 
         else
         {
-            realLogger.log(Level.SEVERE, msg);
+            // realLogger.log(Level.SEVERE, msg);
+            log(Level.SEVERE, msg);
         }
     }
 
@@ -523,7 +564,8 @@ public final class LogFactory
     {
         if (isTraceEnabled())
         {
-            realLogger.log(Level.FINE, msg);
+            // realLogger.log(Level.FINE, msg);
+            log(Level.FINE, msg);
         }
     }
 
@@ -581,6 +623,15 @@ public final class LogFactory
         for (LogFactory factory : LOGGERS.values())
         {
             factory.realLogger.setLevel(targetLevel);
+        }
+    }
+
+    private void log(Level level, String message)
+    {
+        if (realLogger.isLoggable(level))
+        {
+            realLogger.log(level, message);
+            notifyListeners(level, message);
         }
     }
 }
