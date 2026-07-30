@@ -1,11 +1,9 @@
 package logger;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
 import java.util.logging.Handler;
@@ -17,13 +15,12 @@ import java.util.logging.Logger;
  * globally to route all log messages into a single target file.
  *
  * @author Trevor Maggs
- * @version 1.35
- * @since 30 July 2026
+ * @version 1.2
+ * @since 11 June 2026
  */
-public final class LogFactory
+public final class LogFactoryOld
 {
-    private static final Map<String, LogFactory> LOGGERS = new ConcurrentHashMap<String, LogFactory>();
-    private static final List<LogListener> LISTENERS = new CopyOnWriteArrayList<LogListener>();
+    private static final Map<String, LogFactoryOld> LOGGERS = new ConcurrentHashMap<>();
     private static final String MEDIUM_INDENT = "    ";
     private static final String FULL_INDENT = "        ";
     private static FileHandler appFileHandler = null;
@@ -39,7 +36,7 @@ public final class LogFactory
      * @param className
      *        the name of the class using this logger
      */
-    private LogFactory(String className)
+    private LogFactoryOld(String className)
     {
         this.realLogger = Logger.getLogger(className);
         this.realLogger.setLevel(getCurrentLevel());
@@ -59,6 +56,7 @@ public final class LogFactory
     public static synchronized void configure(String logfile) throws IOException
     {
         Objects.requireNonNull(logfile, "Log file is undefined");
+
         configure(logfile, false, false);
     }
 
@@ -86,6 +84,7 @@ public final class LogFactory
     public static synchronized void configure(String logfile, boolean debugEnabled, boolean traceEnabled) throws IOException
     {
         Objects.requireNonNull(logfile, "Log file is undefined");
+
         configure(logfile, debugEnabled, traceEnabled, new AppFormatter());
     }
 
@@ -146,8 +145,6 @@ public final class LogFactory
         Objects.requireNonNull(logfile, "Log file is undefined");
         Objects.requireNonNull(formatter, "Formatter is undefined");
 
-        close();
-
         Logger rootLogger = Logger.getLogger("");
         debug = debugEnabled;
         trace = traceEnabled;
@@ -159,7 +156,7 @@ public final class LogFactory
         rootLogger.setUseParentHandlers(false);
 
         Handler[] handlers = rootLogger.getHandlers();
-        
+
         for (Handler handler : handlers)
         {
             rootLogger.removeHandler(handler);
@@ -174,42 +171,11 @@ public final class LogFactory
 
         appFileHandler = new FileHandler(logfile, true);
         appFileHandler.setFormatter(formatter);
+        appFileHandler.setLevel(Level.ALL);
+
         rootLogger.addHandler(appFileHandler);
 
         updateAllLoggers();
-    }
-
-    /**
-     * Flushes, removes, and closes the active file handler.
-     * 
-     * <p>
-     * Calling this method releases the underlying OS file locks on the log file, allowing directory
-     * cleanup or deletion operations to succeed on Windows systems.
-     * </p>
-     */
-    public static synchronized void close()
-    {
-        if (appFileHandler != null)
-        {
-            try
-            {
-                Logger rootLogger = Logger.getLogger("");
-                rootLogger.removeHandler(appFileHandler);
-
-                appFileHandler.flush();
-                appFileHandler.close();
-            }
-
-            catch (Exception exc)
-            {
-                // Ignore closing exceptions during shutdown/cleanup
-            }
-
-            finally
-            {
-                appFileHandler = null;
-            }
-        }
     }
 
     /**
@@ -227,9 +193,10 @@ public final class LogFactory
      * @throws NullPointerException
      *         if clazz is null
      */
-    public static LogFactory getLogger(Class<?> clazz)
+    public static LogFactoryOld getLogger(Class<?> clazz)
     {
         Objects.requireNonNull(clazz, "Class is undefined");
+
         return getLogger(clazz.getName());
     }
 
@@ -248,16 +215,17 @@ public final class LogFactory
      * @throws NullPointerException
      *         if className is null
      */
-    public static LogFactory getLogger(String className)
+    public static LogFactoryOld getLogger(String className)
     {
         Objects.requireNonNull(className, "Logger name is undefined");
 
-        LogFactory logger = LOGGERS.get(className);
+        LogFactoryOld logger = LOGGERS.get(className);
 
         if (logger == null)
         {
-            logger = new LogFactory(className);
-            LogFactory existing = LOGGERS.putIfAbsent(className, logger);
+            logger = new LogFactoryOld(className);
+
+            LogFactoryOld existing = LOGGERS.putIfAbsent(className, logger);
 
             if (existing != null)
             {
@@ -349,39 +317,6 @@ public final class LogFactory
         return logLevel;
     }
 
-    /**
-     * Removes a previously registered log listener.
-     *
-     * @param listener
-     *        the listener to remove
-     */
-    public static void addLogListener(LogListener listener)
-    {
-        if (listener != null)
-        {
-            LISTENERS.add(listener);
-        }
-    }
-
-    /**
-     * Removes a previously registered log listener.
-     *
-     * @param listener
-     *        the listener to remove
-     */
-    public static void removeLogListener(LogListener listener)
-    {
-        LISTENERS.remove(listener);
-    }
-
-    private static void notifyListeners(Level level, String message)
-    {
-        for (int i = 0; i < LISTENERS.size(); i++)
-        {
-            LISTENERS.get(i).onLog(level, message);
-        }
-    }
-
     /*
      * =====================================================
      * INSTANCE METHODS TO SUPPORT ONE SPECIFIC APPLICATION
@@ -411,6 +346,20 @@ public final class LogFactory
     public void disable()
     {
         realLogger.setLevel(Level.OFF);
+    }
+
+    /**
+     * Logs an informational message.
+     *
+     * @param msg
+     *        message to log
+     */
+    public void info(String msg)
+    {
+        if (realLogger.isLoggable(Level.INFO))
+        {
+            realLogger.log(Level.INFO, msg);
+        }
     }
 
     /**
@@ -454,20 +403,6 @@ public final class LogFactory
     }
 
     /**
-     * Logs an informational message.
-     *
-     * @param msg
-     *        message to log
-     */
-    public void info(String msg)
-    {
-        if (realLogger.isLoggable(Level.INFO))
-        {
-            log(Level.INFO, msg);
-        }
-    }
-
-    /**
      * Logs a debug message.
      *
      * <p>
@@ -481,7 +416,7 @@ public final class LogFactory
     {
         if (isDebugEnabled())
         {
-            log(Level.CONFIG, msg);
+            realLogger.log(Level.CONFIG, msg);
         }
     }
 
@@ -495,7 +430,7 @@ public final class LogFactory
     {
         if (realLogger.isLoggable(Level.WARNING))
         {
-            log(Level.WARNING, msg);
+            realLogger.log(Level.WARNING, msg);
         }
     }
 
@@ -509,7 +444,7 @@ public final class LogFactory
     {
         if (realLogger.isLoggable(Level.SEVERE))
         {
-            log(Level.SEVERE, msg);
+            realLogger.log(Level.SEVERE, msg);
         }
     }
 
@@ -533,10 +468,9 @@ public final class LogFactory
             trace(msg, exc);
         }
 
-        else if (realLogger.isLoggable(Level.SEVERE))
+        else
         {
-            realLogger.log(Level.SEVERE, msg, exc);
-            notifyListeners(Level.SEVERE, msg);
+            realLogger.log(Level.SEVERE, msg);
         }
     }
 
@@ -554,7 +488,7 @@ public final class LogFactory
     {
         if (isTraceEnabled())
         {
-            log(Level.FINE, msg);
+            realLogger.log(Level.FINE, msg);
         }
     }
 
@@ -574,11 +508,7 @@ public final class LogFactory
     {
         if (isTraceEnabled())
         {
-            if (realLogger.isLoggable(Level.FINE))
-            {
-                realLogger.log(Level.FINE, msg, exc);
-                notifyListeners(Level.FINE, msg);
-            }
+            realLogger.log(Level.FINE, msg, exc);
         }
     }
 
@@ -587,7 +517,7 @@ public final class LogFactory
      */
     private static Level getCurrentLevel()
     {
-        return (appFileHandler == null ? Level.OFF : (trace ? Level.FINE : (debug ? Level.CONFIG : Level.INFO)));
+        return (appFileHandler == null ? Level.OFF : (trace ? Level.FINE : (debug ? Level.CONFIG : Level.INFO)));        
     }
 
     /**
@@ -605,26 +535,9 @@ public final class LogFactory
 
         Logger.getLogger("").setLevel(targetLevel);
 
-        for (Map.Entry<String, LogFactory> entry : LOGGERS.entrySet())
+        for (LogFactoryOld factory : LOGGERS.values())
         {
-            entry.getValue().realLogger.setLevel(targetLevel);
-        }
-    }
-
-    /**
-     * Logs a message and then notifies all registered listeners.
-     *
-     * @param level
-     *        the logging level
-     * @param message
-     *        the message to log
-     */
-    private void log(Level level, String message)
-    {
-        if (realLogger.isLoggable(level))
-        {
-            realLogger.log(level, message);
-            notifyListeners(level, message);
+            factory.realLogger.setLevel(targetLevel);
         }
     }
 }
