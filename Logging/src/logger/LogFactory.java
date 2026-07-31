@@ -2,9 +2,7 @@ package logger;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
@@ -22,7 +20,6 @@ import java.util.logging.Logger;
  */
 public final class LogFactory
 {
-    private static final Map<String, LogFactory> LOGGERS = new ConcurrentHashMap<String, LogFactory>();
     private static final List<LogListener> LISTENERS = new CopyOnWriteArrayList<LogListener>();
     private static final String MEDIUM_INDENT = "    ";
     private static final String FULL_INDENT = "        ";
@@ -42,17 +39,20 @@ public final class LogFactory
     private LogFactory(String className)
     {
         this.realLogger = Logger.getLogger(className);
-        this.realLogger.setLevel(getCurrentLevel());
     }
 
     /**
-     * Sets up the logging system to use a single target log file using the default
-     * {@link CustomFormatter} formatter. Developers need to call this method once at the main entry
-     * point in their applications.
+     * Sets up the logging system to target a single log file using the default {@link AppFormatter}
+     * formatter.
+     * 
+     * <p>
+     * Developers need to call this method once at the main entry point in their applications.
+     * </p>
      * 
      * @param logfile
      *        path to the target log file
-     * 
+     * @throws NullPointerException
+     *         if logfile is null
      * @throws IOException
      *         if the file cannot be accessed or created
      */
@@ -63,23 +63,22 @@ public final class LogFactory
     }
 
     /**
-     * Sets up the logging system to use a single log file.
-     *
-     * This method refreshes the logging configuration based on the global settings, preventing
-     * double-logging or file locks. Every logger registered by this factory will automatically
-     * route to the same specified file.
+     * Sets up the logging system to target a single log file with options to enable debugging
+     * and/or tracing.
      * 
+     * <p>
      * Developers need to call this method once at the main entry point in their applications.
-     *
+     * </p>
+     * 
      * @param logfile
      *        path to the log file
      * @param debugEnabled
      *        true to turn on debug logging
      * @param traceEnabled
      *        true to turn on trace logging
-     *
+     * 
      * @throws NullPointerException
-     *         if the file is null
+     *         if logfile is null
      * @throws IOException
      *         if the file cannot be created or opened
      */
@@ -92,50 +91,38 @@ public final class LogFactory
     /**
      * Configures the logging service to write all application log messages to a single file using
      * the specified formatter.
-     *
+     * 
      * <p>
-     * This factory sets up a <b>single-handler architecture</b> where the application Root Logger
-     * manages exactly one {@link FileHandler}. Every logger you fetch from this factory will
-     * automatically route its output to this single shared file.
+     * This method establishes a single-handler architecture where the root logger manages exactly
+     * one {@link FileHandler}. All loggers created by this factory automatically route their output
+     * to this shared file.
      * </p>
      *
      * <p>
-     * The Root Logger is configured using {@link Logger#setUseParentHandlers(boolean)} with a value
-     * of {@code false} to ensure that log messages are processed only by the application's
-     * configured handlers and are not forwarded beyond the application's logging hierarchy.
+     * If the service was previously configured, the existing handler is detached and safely closed
+     * before the new configuration is applied. All other existing handlers are cleared to prevent:
      * </p>
-     *
-     * <p>
-     * Before the new file handler is attached, all existing handlers are removed and closed. This
-     * prevents:
-     * </p>
-     *
+     * 
      * <ul>
-     * <li>duplicate log entries caused by multiple active handlers, eliminating potential
-     * conflicts</li>
+     * <li>duplicate log entries across multiple handlers</li>
      * <li>resource leaks from stale file handles</li>
-     * <li>unwanted output from the default JUL ConsoleHandler</li>
+     * <li>unwanted output from the default JUL {@link java.util.logging.ConsoleHandler}</li>
      * </ul>
      *
      * <p>
-     * If the logging service has already been configured, the previously registered application
-     * file handler is detached and closed before the handler is refreshed.
-     * </p>
-     *
-     * <p>
-     * The created {@link FileHandler} operates in append mode so that existing log contents are
-     * preserved across application restarts.
+     * The target {@link FileHandler} opens in append mode, preserving existing file contents across
+     * application restarts.
      * </p>
      *
      * @param logfile
      *        path to the destination log file
      * @param debugEnabled
-     *        true to turn on debug logging
+     *        true to enable debug logging
      * @param traceEnabled
-     *        true to turn on trace logging
+     *        true to enable trace logging
      * @param formatter
      *        formatter used to render log records
-     *
+     * 
      * @throws NullPointerException
      *         if logfile or formatter is null
      * @throws IOException
@@ -153,23 +140,26 @@ public final class LogFactory
         trace = traceEnabled;
 
         /*
-         * Disable parent handler propagation so that log records are processed only by the handlers
-         * explicitly registered on the Root Logger.
+         * Disable parent handler propagation so that log records are processed only by the
+         * handlers explicitly registered on the Root Logger.
          */
         rootLogger.setUseParentHandlers(false);
 
-        Handler[] handlers = rootLogger.getHandlers();
-        
-        for (Handler handler : handlers)
+        Handler[] existingHandlers = rootLogger.getHandlers();
+
+        for (Handler handler : existingHandlers)
         {
             rootLogger.removeHandler(handler);
-            handler.close();
-        }
 
-        if (appFileHandler != null)
-        {
-            rootLogger.removeHandler(appFileHandler);
-            appFileHandler.close();
+            try
+            {
+                handler.close();
+            }
+
+            catch (Exception exc)
+            {
+                // Safely pass through without noises
+            }
         }
 
         appFileHandler = new FileHandler(logfile, true);
@@ -181,11 +171,6 @@ public final class LogFactory
 
     /**
      * Flushes, removes, and closes the active file handler.
-     * 
-     * <p>
-     * Calling this method releases the underlying OS file locks on the log file, allowing directory
-     * cleanup or deletion operations to succeed on Windows systems.
-     * </p>
      */
     public static synchronized void close()
     {
@@ -251,30 +236,11 @@ public final class LogFactory
     public static LogFactory getLogger(String className)
     {
         Objects.requireNonNull(className, "Logger name is undefined");
-
-        LogFactory logger = LOGGERS.get(className);
-
-        if (logger == null)
-        {
-            logger = new LogFactory(className);
-            LogFactory existing = LOGGERS.putIfAbsent(className, logger);
-
-            if (existing != null)
-            {
-                logger = existing;
-            }
-        }
-
-        return logger;
+        return new LogFactory(className);
     }
 
     /**
      * Turns debug logging on or off for the whole application.
-     *
-     * <p>
-     * When turned on, detailed troubleshooting messages will be saved to the log file. When turned
-     * off, these extra messages are skipped to save space.
-     * </p>
      *
      * @param d
      *        true to turn on debug mode; false to keep it off
@@ -299,7 +265,7 @@ public final class LogFactory
      * Turns deep trace logging on or off for the whole application.
      *
      * <p>
-     * When turned on, highly detailed step-by-step messages will be saved to the log file.
+     * When turned on, highly detailed step-by-step messages will be written to the log file.
      * </p>
      *
      * @param t
@@ -330,7 +296,6 @@ public final class LogFactory
      *
      * @param level
      *        desired verbosity level setting
-     *
      * @throws NullPointerException
      *         if level is null
      */
@@ -340,7 +305,7 @@ public final class LogFactory
     }
 
     /**
-     * Returns the currently configured global message verbosity level.
+     * Returns the currently configured global message verbosity level for indentation purposes.
      *
      * @return the active verbosity level
      */
@@ -350,10 +315,10 @@ public final class LogFactory
     }
 
     /**
-     * Removes a previously registered log listener.
+     * Adds a log listener to receive logging notifications.
      *
      * @param listener
-     *        the listener to remove
+     *        the listener to add
      */
     public static void addLogListener(LogListener listener)
     {
@@ -374,11 +339,28 @@ public final class LogFactory
         LISTENERS.remove(listener);
     }
 
+    /**
+     * Notifies all registered log listeners of a logged message.
+     *
+     * @param level
+     *        the log level of the message
+     * @param message
+     *        the log message text
+     */
     private static void notifyListeners(Level level, String message)
     {
-        for (int i = 0; i < LISTENERS.size(); i++)
+        for (LogListener listener : LISTENERS)
         {
-            LISTENERS.get(i).onLog(level, message);
+            try
+            {
+                listener.onLog(level, message);
+            }
+
+            catch (Throwable exc)
+            {
+                System.err.println("LogListener failed");
+                System.err.println(exc.getMessage());
+            }
         }
     }
 
@@ -389,24 +371,15 @@ public final class LogFactory
      */
 
     /**
-     * Enables logging for this specific logger using the current global logging settings.
-     *
-     * <p>
-     * If this logger was previously disabled using {@link #disable()}, its logging functionality is
-     * restored.
-     * </p>
+     * Enables this specific logger instance to re-activate logging.
      */
     public void enable()
     {
-        realLogger.setLevel(getCurrentLevel());
+        realLogger.setLevel(null);
     }
 
     /**
-     * Disables this logger until the next global level refresh or explicit call to enable().
-     *
-     * <p>
-     * Only this logger instance is muted. Other loggers remain unchanged.
-     * </p>
+     * Disables this specific logger instance from producing log records.
      */
     public void disable()
     {
@@ -414,7 +387,7 @@ public final class LogFactory
     }
 
     /**
-     * Logs an informational message subject to the specified verbosity level.
+     * Logs an informational message formatted according to the specified verbosity level.
      * 
      * <p>
      * The message is evaluated against the globally configured threshold. If the supplied verbosity
@@ -425,10 +398,10 @@ public final class LogFactory
      * @param msg
      *        the message string to log
      * @param sev
-     *        the verbosity level classifying the structural importance of this message
+     *        the verbosity setting associated with the message
      *
      * @throws NullPointerException
-     *         if the provided verbosity level is null
+     *         if sev is null
      */
     public void info(String msg, Verbosity sev)
     {
@@ -457,7 +430,7 @@ public final class LogFactory
      * Logs an informational message.
      *
      * @param msg
-     *        message to log
+     *        the message string to log
      */
     public void info(String msg)
     {
@@ -468,14 +441,10 @@ public final class LogFactory
     }
 
     /**
-     * Logs a debug message.
-     *
-     * <p>
-     * Messages are only written when debug mode is enabled.
-     * </p>
+     * Logs a debug-level message if debug mode is active.
      *
      * @param msg
-     *        message to log
+     *        the message string to log
      */
     public void debug(String msg)
     {
@@ -486,10 +455,10 @@ public final class LogFactory
     }
 
     /**
-     * Logs a warning message.
+     * Logs a warning-level message.
      *
      * @param msg
-     *        message to log
+     *        the message string to log
      */
     public void warn(String msg)
     {
@@ -500,10 +469,10 @@ public final class LogFactory
     }
 
     /**
-     * Logs an error message.
+     * Logs an error-level message.
      *
      * @param msg
-     *        message to log
+     *        the message string to log
      */
     public void error(String msg)
     {
@@ -514,7 +483,7 @@ public final class LogFactory
     }
 
     /**
-     * Logs an error message associated with an exception.
+     * Logs an error message along with an associated exception stack trace.
      *
      * <p>
      * When trace mode is enabled, the exception is logged with full stack trace details. Otherwise
@@ -522,9 +491,9 @@ public final class LogFactory
      * </p>
      *
      * @param msg
-     *        message describing the error
+     *        the error description
      * @param exc
-     *        associated exception
+     *        exception or error thrown
      */
     public void error(String msg, Throwable exc)
     {
@@ -541,14 +510,10 @@ public final class LogFactory
     }
 
     /**
-     * Logs a trace message.
-     *
-     * <p>
-     * Messages are only written when trace mode is enabled.
-     * </p>
+     * Logs a fine-grained trace message if trace mode is active.
      *
      * @param msg
-     *        message to log
+     *        the message string to log
      */
     public void trace(String msg)
     {
@@ -559,16 +524,12 @@ public final class LogFactory
     }
 
     /**
-     * Logs a trace message together with an exception.
-     *
-     * <p>
-     * The full stack trace is recorded when trace mode is enabled.
-     * </p>
+     * Logs a trace message along with an associated exception stack trace if trace mode is active.
      *
      * @param msg
-     *        message describing the event
+     *        the message string to log
      * @param exc
-     *        associated exception
+     *        exception or error thrown
      */
     public void trace(String msg, Throwable exc)
     {
@@ -583,7 +544,9 @@ public final class LogFactory
     }
 
     /**
-     * Internal helper to determine the current system logging threshold.
+     * Evaluates the current effective JUL logging level based on trace and debug toggles.
+     *
+     * @return the corresponding JUL logging Level
      */
     private static Level getCurrentLevel()
     {
@@ -591,8 +554,7 @@ public final class LogFactory
     }
 
     /**
-     * Synchronises the Root Logger and all registered LogFactory instances with the current global
-     * debug and trace settings.
+     * Updates the root logger level and handler level configuration to reflect state changes.
      */
     private static void updateAllLoggers()
     {
@@ -603,21 +565,18 @@ public final class LogFactory
             appFileHandler.setLevel(Level.ALL);
         }
 
+        // Changing the root logger level instantly updates all child loggers
         Logger.getLogger("").setLevel(targetLevel);
-
-        for (Map.Entry<String, LogFactory> entry : LOGGERS.entrySet())
-        {
-            entry.getValue().realLogger.setLevel(targetLevel);
-        }
     }
 
     /**
-     * Logs a message and then notifies all registered listeners.
+     * Internal helper method to despatch a log record to the underlying JUL logger and notify
+     * listeners.
      *
      * @param level
-     *        the logging level
+     *        severity level of the record
      * @param message
-     *        the message to log
+     *        log string
      */
     private void log(Level level, String message)
     {
