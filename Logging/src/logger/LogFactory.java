@@ -340,6 +340,22 @@ public final class LogFactory
     }
 
     /**
+     * Globally disables log record production across all application loggers.
+     */
+    public static void disable()
+    {
+        Logger.getLogger("").setLevel(Level.OFF);
+    }
+
+    /**
+     * Re-activates global logging, restoring active debug and trace level configurations.
+     */
+    public static void enable()
+    {
+        updateAllLoggers();
+    }
+
+    /**
      * Notifies all registered log listeners of a logged message.
      *
      * @param level
@@ -369,22 +385,6 @@ public final class LogFactory
      * INSTANCE METHODS TO SUPPORT ONE SPECIFIC APPLICATION
      * =====================================================
      */
-
-    /**
-     * Enables this specific logger instance to re-activate logging.
-     */
-    public void enable()
-    {
-        realLogger.setLevel(null);
-    }
-
-    /**
-     * Disables this specific logger instance from producing log records.
-     */
-    public void disable()
-    {
-        realLogger.setLevel(Level.OFF);
-    }
 
     /**
      * Logs an informational message formatted according to the specified verbosity level.
