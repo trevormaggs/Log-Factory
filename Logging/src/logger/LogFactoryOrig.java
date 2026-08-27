@@ -3,15 +3,11 @@ package logger;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.logging.FileHandler;
-import java.util.logging.Filter;
 import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 /**
@@ -22,10 +18,9 @@ import java.util.logging.Logger;
  * @version 1.35
  * @since 30 July 2026
  */
-public final class LogFactoryTest
+public final class LogFactoryOrig
 {
     private static final List<LogListener> LISTENERS = new CopyOnWriteArrayList<LogListener>();
-    private static final Set<String> IGNORED_PACKAGES = new CopyOnWriteArraySet<String>();
     private static final String MEDIUM_INDENT = "    ";
     private static final String FULL_INDENT = "        ";
     private static FileHandler appFileHandler = null;
@@ -41,7 +36,7 @@ public final class LogFactoryTest
      * @param className
      *        the name of the class using this logger
      */
-    private LogFactoryTest(String className)
+    private LogFactoryOrig(String className)
     {
         this.realLogger = Logger.getLogger(className);
     }
@@ -144,76 +139,6 @@ public final class LogFactoryTest
         debug = debugEnabled;
         trace = traceEnabled;
 
-        rootLogger.setUseParentHandlers(false);
-
-        Handler[] existingHandlers = rootLogger.getHandlers();
-
-        for (Handler handler : existingHandlers)
-        {
-            rootLogger.removeHandler(handler);
-
-            try
-            {
-                handler.close();
-            }
-            catch (Exception exc)
-            {
-                // Safely pass through without noises
-            }
-        }
-
-        appFileHandler = new FileHandler(logfile, true);
-        appFileHandler.setFormatter(formatter);
-
-        /*
-         * Attach a Filter using an anonymous inner class to exclude log records
-         * originating from suppressed package prefixes.
-         */
-        appFileHandler.setFilter(new Filter()
-        {
-            @Override
-            public boolean isLoggable(LogRecord record)
-            {
-                if (record == null)
-                {
-                    return false;
-                }
-
-                String loggerName = record.getLoggerName();
-
-                if (loggerName == null || IGNORED_PACKAGES.isEmpty())
-                {
-                    return true;
-                }
-
-                for (String pkg : IGNORED_PACKAGES)
-                {
-                    if (loggerName.startsWith(pkg))
-                    {
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-        });
-
-        rootLogger.addHandler(appFileHandler);
-
-        updateAllLoggers();
-    }
-
-    public static synchronized void configure2(String logfile, boolean debugEnabled, boolean traceEnabled, Formatter formatter) throws IOException
-    {
-        Objects.requireNonNull(logfile, "Log file is undefined");
-        Objects.requireNonNull(formatter, "Formatter is undefined");
-
-        close();
-
-        Logger rootLogger = Logger.getLogger("");
-        debug = debugEnabled;
-        trace = traceEnabled;
-
         /*
          * Disable parent handler propagation so that log records are processed only by the
          * handlers explicitly registered on the Root Logger.
@@ -287,7 +212,7 @@ public final class LogFactoryTest
      * @throws NullPointerException
      *         if clazz is null
      */
-    public static LogFactoryTest getLogger(Class<?> clazz)
+    public static LogFactoryOrig getLogger(Class<?> clazz)
     {
         Objects.requireNonNull(clazz, "Class is undefined");
         return getLogger(clazz.getName());
@@ -308,10 +233,10 @@ public final class LogFactoryTest
      * @throws NullPointerException
      *         if className is null
      */
-    public static LogFactoryTest getLogger(String className)
+    public static LogFactoryOrig getLogger(String className)
     {
         Objects.requireNonNull(className, "Logger name is undefined");
-        return new LogFactoryTest(className);
+        return new LogFactoryOrig(className);
     }
 
     /**
@@ -428,26 +353,6 @@ public final class LogFactoryTest
     public static void enable()
     {
         updateAllLoggers();
-    }
-
-    /**
-     * Suppresses logging output for specified package prefixes (e.g., "javafx", "com.sun.javafx").
-     *
-     * @param packagePrefixes
-     *        array of package names or prefixes to ignore
-     */
-    public static void suppressPackages(String...packagePrefixes)
-    {
-        if (packagePrefixes != null)
-        {
-            for (String prefix : packagePrefixes)
-            {
-                if (prefix != null && !prefix.trim().isEmpty())
-                {
-                    IGNORED_PACKAGES.add(prefix.trim());
-                }
-            }
-        }
     }
 
     /**
