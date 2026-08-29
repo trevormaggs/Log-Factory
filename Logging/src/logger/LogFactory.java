@@ -9,7 +9,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * A centralised logging factory wrapping {@link java.util.logging.Logger} (JUL). Configured globally to route all log messages into a single target file.
+ * A centralised logging factory wrapping {@link java.util.logging.Logger} (JUL). Configured
+ * globally to route all log messages into a single target file.
  *
  * @author Trevor Maggs
  * @version 1.35
@@ -27,7 +28,8 @@ public final class LogFactory
     private final Logger realLogger;
 
     /**
-     * Private constructor used to create a new logger for a specific class. Sets the initial logging visibility based on the current global settings.
+     * Private constructor used to create a new logger for a specific class. Sets the initial
+     * logging visibility based on the current global settings.
      *
      * @param className
      *        the name of the class using this logger
@@ -38,7 +40,8 @@ public final class LogFactory
     }
 
     /**
-     * Sets up the logging system to target a single log file using the default {@link AppFormatter} formatter.
+     * Sets up the logging system to target a single log file using the default {@link AppFormatter}
+     * formatter.
      *
      * <p>
      * Developers need to call this method once at the main entry point in their applications.
@@ -46,7 +49,7 @@ public final class LogFactory
      *
      * @param logfile
      *        path to the target log file
-     *        
+     * 
      * @throws NullPointerException
      *         if logfile is null
      * @throws IOException
@@ -59,7 +62,8 @@ public final class LogFactory
     }
 
     /**
-     * Sets up the logging system to target a single log file with options to enable debugging and/or tracing.
+     * Sets up the logging system to target a single log file with options to enable debugging
+     * and/or tracing.
      *
      * <p>
      * Developers need to call this method once at the main entry point in their applications.
@@ -71,7 +75,7 @@ public final class LogFactory
      *        true to turn on debug logging
      * @param traceEnabled
      *        true to turn on trace logging
-     *
+     * 
      * @throws NullPointerException
      *         if logfile is null
      * @throws IOException
@@ -84,24 +88,19 @@ public final class LogFactory
     }
 
     /**
-     * Configures the logging service to write all application log messages to a single file using the specified formatter.
+     * Configures the logging service to write all application log messages to a single file using
+     * the specified formatter.
      *
      * <p>
-     * This method establishes a single-handler architecture where the root logger manages exactly one {@link FileHandler}. All loggers created by this factory automatically route their output to this shared file.
+     * This method configures the root logger with a shared {@link FileHandler} for file output and
+     * a {@link ListenerHandler} for application listeners. All loggers created by this factory
+     * automatically route their output through these handlers.
      * </p>
      *
      * <p>
-     * If the service was previously configured, the existing handler is detached and safely closed before the new configuration is applied. All other existing handlers are cleared to prevent:
-     * </p>
-     *
-     * <ul>
-     * <li>duplicate log entries across multiple handlers</li>
-     * <li>resource leaks from stale file handles</li>
-     * <li>unwanted output from the default JUL {@link java.util.logging.ConsoleHandler}</li>
-     * </ul>
-     *
-     * <p>
-     * The target {@link FileHandler} opens in append mode, preserving existing file contents across application restarts.
+     * If the service was previously configured, the existing handlers are detached and safely
+     * closed before the new configuration is applied. The target {@link FileHandler} opens in
+     * append mode, preserving existing file contents across application restarts.
      * </p>
      *
      * @param logfile
@@ -123,7 +122,7 @@ public final class LogFactory
         Objects.requireNonNull(logfile, "Log file is undefined");
         Objects.requireNonNull(formatter, "Formatter is undefined");
 
-        close(); 
+        close();
 
         Logger rootLogger = Logger.getLogger("");
         debug = debugEnabled;
@@ -134,12 +133,15 @@ public final class LogFactory
         for (Handler handler : rootLogger.getHandlers())
         {
             rootLogger.removeHandler(handler);
+
             try
             {
                 handler.close();
             }
-            catch (Exception ignored)
+
+            catch (Exception exc)
             {
+                // Safely pass through without noises
             }
         }
 
@@ -155,7 +157,8 @@ public final class LogFactory
     }
 
     /**
-     * Flushes, removes, and closes active handlers.
+     * Flushes, removes, and closes the handlers used by the logging service. After this method
+     * returns, file logging is disabled until the logging service is configured again.
      */
     public static synchronized void close()
     {
@@ -169,11 +172,12 @@ public final class LogFactory
                 appFileHandler.flush();
                 appFileHandler.close();
             }
-            
+
             catch (Exception exc)
             {
+                // Ignore closing exceptions during shutdown/cleanup
             }
-            
+
             finally
             {
                 appFileHandler = null;
@@ -188,11 +192,12 @@ public final class LogFactory
                 appListenerHandler.flush();
                 appListenerHandler.close();
             }
-            
+
             catch (Exception exc)
             {
+                // Ignore closing exceptions during shutdown/cleanup
             }
-            
+
             finally
             {
                 appListenerHandler = null;
@@ -204,7 +209,8 @@ public final class LogFactory
      * Returns a logger associated with the specified class.
      *
      * <p>
-     * The logger name is derived from the fully qualified class name. Repeated calls for the same class return the same logger instance.
+     * The logger name is derived from the fully qualified class name. Repeated calls for the same
+     * class return the same logger instance.
      * </p>
      *
      * @param clazz
@@ -224,13 +230,16 @@ public final class LogFactory
      * Returns a logger associated with the specified name.
      *
      * <p>
-     * If a logger with the specified name already exists, the existing instance is returned. Otherwise a new logger is created and registered.
+     * If a logger with the specified name already exists, the existing instance is returned.
+     * Otherwise a new logger is created and registered.
      * </p>
      *
-     * @param className unique logger name
+     * @param className
+     *        unique logger name
      * @return the corresponding logger instance
-     *
-     * @throws NullPointerException if className is null
+     * 
+     * @throws NullPointerException
+     *         if className is null
      */
     public static LogFactory getLogger(String className)
     {
@@ -295,6 +304,7 @@ public final class LogFactory
      *
      * @param level
      *        desired verbosity level setting
+     * 
      * @throws NullPointerException
      *         if level is null
      */
@@ -337,6 +347,7 @@ public final class LogFactory
 
     /**
      * Globally disables log record production across all application loggers.
+     *
      */
     public static synchronized void disable()
     {
@@ -345,6 +356,7 @@ public final class LogFactory
 
     /**
      * Re-activates global logging, restoring active debug and trace level configurations.
+     *
      */
     public static synchronized void enable()
     {
@@ -361,7 +373,9 @@ public final class LogFactory
      * Logs an informational message formatted according to the specified verbosity level.
      *
      * <p>
-     * The message is evaluated against the globally configured threshold. If the supplied verbosity level falls within the active global verbosity threshold, the message is written using the corresponding indentation level.
+     * The message is evaluated against the globally configured threshold. If the supplied verbosity
+     * level falls within the active global verbosity threshold, the message is written using the
+     * corresponding indentation level.
      * </p>
      *
      * @param msg
@@ -446,7 +460,8 @@ public final class LogFactory
      * Logs an error message along with an associated exception stack trace.
      *
      * <p>
-     * When trace mode is enabled, the exception is logged with full stack trace details. Otherwise the exception is logged normally.
+     * When trace mode is enabled, the exception is logged with full stack trace details. Otherwise
+     * the exception is logged normally.
      * </p>
      *
      * @param msg
@@ -509,6 +524,7 @@ public final class LogFactory
 
     /**
      * Updates the root logger level and handler level configuration to reflect state changes.
+     *
      */
     private static void updateAllLoggers()
     {
