@@ -145,7 +145,7 @@ public final class LogFactory
             }
         }
 
-        appFileHandler = new FileHandler(logfile, true);
+        appFileHandler = new FileHandler(logfile, false);
         appFileHandler.setFormatter(formatter);
         rootLogger.addHandler(appFileHandler);
 
